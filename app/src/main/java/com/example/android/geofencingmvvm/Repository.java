@@ -49,10 +49,12 @@ public class Repository {
     }
 
     public void setDestinationLatlng(LatLng latLng) {
-        Log.d(TAG, "Set/Save destination: " + String.format("%f, %f", latLng.latitude, latLng.longitude));
+        String destination = latLng == null ? null : String.format("%f, %f", latLng.latitude, latLng.longitude);
+
+        Log.d(TAG, "Set/Save destination: " + destination);
         destinationLivedata.setValue(latLng);
         sharedPreferences.edit()
-                .putString(Common.DESTINATION_KEY, String.format("%f, %f", latLng.latitude, latLng.longitude))
+                .putString(Common.DESTINATION_KEY, destination)
                 .apply();
     }
 

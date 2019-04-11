@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.location.Location;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.Toast;
 
 import com.google.android.gms.location.Geofence;
@@ -30,7 +31,7 @@ import androidx.fragment.app.FragmentActivity;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProviders;
 
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleMap.OnMapClickListener {
+public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleMap.OnMapClickListener, GoogleMap.OnInfoWindowLongClickListener {
 
     private GoogleMap mMap;
     private Marker marker;
@@ -38,7 +39,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private GeofencingClient geofencingClient;
     private PendingIntent mGeofencePendingIntent;
     private Circle circle;
-    private LatLng destinationLatLng;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,16 +58,30 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         myViewModel.destinationLivedata().observe(this, new Observer<LatLng>() {
             @Override
             public void onChanged(LatLng latLng) {
+                // Destination null means no destination at all, so remove marker and circle respectively
                 if (latLng == null) {
+                    if (marker != null) {
+                        marker.remove();
+                        marker = null;
+                    }
+                    if (circle != null) {
+                        circle.remove();
+                        circle = null;
+                    }
                     return;
                 }
+                // Initialize marker and circle if not done yet, otherwise use the existing marker and circle
                 if (marker == null) {
                     marker = mMap.addMarker(new MarkerOptions()
-                            .title("destination")
+                            .title(Common.MARKER_TITLE)
+                            .snippet(Common.MARKER_SNIPPET)
                             .position(latLng));
                 } else {
                     marker.setPosition(latLng);
                 }
+                // Programmatically show the info window so the user sees
+                marker.showInfoWindow();
+
                 if (circle == null) {
                     circle = mMap.addCircle(new CircleOptions()
                             .center(latLng)
@@ -82,29 +96,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         });
     }
 
-    private void observeGeofenceStatus() {
-        myViewModel.geofenceStatusLiveData().observe(this, new Observer<GeofenceStatus>() {
-            @Override
-            public void onChanged(GeofenceStatus geofenceStatus) {
-                if (destinationLatLng == null || geofenceStatus == GeofenceStatus.NONE) {
-                    Toast.makeText(MapsActivity.this, "Destination Null or Geofence status: " + geofenceStatus.name(), Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                switch (geofenceStatus) {
-                    case REMOVE:
-                        removeGeofence();
-                        break;
-                    case ADD:
-                        addGeofence();
-                        break;
-                }
-            }
-        });
-    }
-
     @SuppressLint("MissingPermission")
-    private void addGeofence() {
-        geofencingClient.addGeofences(getGeofencingRequest(), getGeofencePendingIntent())
+    private void addGeofence(LatLng destinationLatLng) {
+        geofencingClient.addGeofences(getGeofencingRequest(destinationLatLng), getGeofencePendingIntent())
                 .addOnCompleteListener(new OnCompleteListener<Void>() {
                     @Override
                     public void onComplete(@NonNull Task<Void> task) {
@@ -141,7 +135,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         myViewModel.setGeofenceStatus(GeofenceStatus.NONE);
     }
 
-    private GeofencingRequest getGeofencingRequest() {
+    private GeofencingRequest getGeofencingRequest(LatLng destinationLatLng) {
         GeofencingRequest.Builder builder = new GeofencingRequest.Builder();
 
         // The INITIAL_TRIGGER_ENTER flag indicates that geofencing service should trigger a
@@ -165,7 +159,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
 
         Intent intent = new Intent(this, GeofenceBroadcastReceiver.class);
-        // We use FLAG_UPDATE_CURRENT so that we get the same pending intent back when calling
+        // We use FLAG_UPDATE_CURRENT so that we gdestinationLatLng = latLng;et the same pending intent back when calling
         // addGeofences() and removeGeofences().
         mGeofencePendingIntent = PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
         return mGeofencePendingIntent;
@@ -188,6 +182,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         mMap.setMyLocationEnabled(true);
         mMap.setOnMapClickListener(this);
+        mMap.setOnInfoWindowLongClickListener(this);
 
         LocationServices.getFusedLocationProviderClient(this)
                 .getLastLocation()
@@ -204,13 +199,19 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         // Stuff to do after map is loaded and map is clicked for the first time.
         observeDestination();
-        observeGeofenceStatus();
     }
 
     @Override
     public void onMapClick(LatLng latLng) {
-        destinationLatLng = latLng;
-        myViewModel.setDestination(destinationLatLng);
-        myViewModel.setGeofenceStatus(GeofenceStatus.ADD);
+        // Set a new destination and geofence
+        myViewModel.setDestination(latLng);
+        addGeofence(latLng);
+    }
+
+    @Override
+    public void onInfoWindowLongClick(Marker marker) {
+        // Remove the marker and geofence, removing marker just means setting destination to null, observer will take care of the rest
+        myViewModel.setDestination(null);
+        removeGeofence();
     }
 }
