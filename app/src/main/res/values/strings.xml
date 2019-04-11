@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">Geofencing [MVVM]</string>
+    <string name="title_activity_maps">Map</string>
+    <string name="location_permission_granted">Location permission has been granted!</string>
+    <string name="unknown_geofence_error">Unknown geofence error!</string>
+    <string name="geofence_not_available">Geofence not availabel!</string>
+    <string name="geofence_too_many_geofences">Too many geofences!</string>
+    <string name="geofence_too_many_pending_intents">Too many pending intents!</string>
+    <string name="geofence_transition_invalid_type">%d invalid geofence transition type!</string>
+
+    <string name="title_activity_fullscreen">FullscreenActivity</string>
+    <string name="grant_btn">Grant Permission</string>
+    <string name="permission_notice">Location permission is needed to use the app.</string>
+</resources>
